@@ -1,8 +1,10 @@
 # PDFMtEd
 
-![PDFMtEd logo](https://github.com/Glutanimate/PDFMtEd/blob/master/desktop/pdfmted.png)
+<p align="center">
+  <img src="https://github.com/Glutanimate/PDFMtEd/blob/master/desktop/pdfmted.png" alt="PDFMtEd logo"/>
+</p>
 
-**PDFMtEd** (**PDF** **M**e**t**adata **Ed**itor) is a set of tools designed to simplify working with PDF metadata on Linux. The utilities hosted in this repository are graphical front-ends to the marvelous [ExifTool](http://www.sno.phy.queensu.ca/~phil/exiftool/) by Phil Harvey.
+**PDFMtEd** (**PDF** <b>M</b>e<b>t</b>adata <b>Ed</b>itor) is a set of tools designed to simplify working with PDF metadata on Linux. The utilities hosted in this repository are graphical front-ends to the marvelous [ExifTool](http://www.sno.phy.queensu.ca/~phil/exiftool/) by Phil Harvey.
 
 ## Table of contents
 
@@ -28,6 +30,7 @@
 - [Additional information](#additional-information)
     - [Modified metadata tags](#modified-metadata-tags)
     - [Purging metadata](#purging-metadata)
+- [Known issues](#known-issues)
 - [License](#license)
 
 <!-- /MarkdownTOC -->
@@ -71,13 +74,15 @@ While it can handle all file formats supported by exiftool PDFMtEd Inspector was
 
 **Overview**
 
-PDFMtEd Thumbnailer provides the thumbnail previews for the utilities hosted in this repository. It also acts as a general purpose thumbnailing script that can recursively generate thumbnails for one or several directories. PDFMtEd Thumbnailer should be able to generate thumbnails for all file types supported by Nautilus, or rather GNOME's thumbnailing back-end.
+PDFMtEd Thumbnailer provides the thumbnail previews for the utilities hosted in this repository. It also acts as a general purpose thumbnailing script that can recursively generate thumbnails for one or more directories. 
+
+PDFMtEd Thumbnailer should be able to generate thumbnails for all file types supported by Nautilus/GNOME's thumbnailing back-end.
 
 **Note:** `pdfmted-thumbnailer` was written by [James Henstridge](https://launchpad.net/~jamesh) as part of an [AskUbuntu Q&A](http://askubuntu.com/a/201997).
 
 ## Installation and dependencies
 
-The following instructions are provided for Ubuntu. Package names and sources might differ on other distributions.
+The following instructions are provided for Ubuntu. Package names and repositories might differ on other distributions.
 
 ### Dependencies
 
@@ -95,9 +100,9 @@ Install all dependencies on Ubuntu with the following commands:
 
 **Required:**
 
-- [YAD](http://sourceforge.net/projects/yad-dialog/): graphical front-end for bash scripts, a Zenity fork
+- [YAD](http://sourceforge.net/projects/yad-dialog/): graphical front-end for bash scripts, a Zenity fork; provided by Webupd8 PPA
 - [ExifTool](http://www.sno.phy.queensu.ca/~phil/exiftool/): general purpose metadata editing application and library
-- [qpdf](http://qpdf.sourceforge.net/): command-line program that does structural, content-preserving transformations on PDF files; used in this Project to attempt to restore broken PDF files and purge PDF files of residual metadata
+- [qpdf](http://qpdf.sourceforge.net/): command-line program that does structural, content-preserving transformations on PDF files; used in this project to restore broken PDF files and purge documents of residual metadata
 - Python 2.7 is required for the thumbnailer and thumbnail preview to work. This should be installed on your system by default.
 
 **Recommended:**
@@ -107,7 +112,9 @@ Install all dependencies on Ubuntu with the following commands:
 ### Installation
 
 1. Install all dependencies
+
 2. Clone this repository or download the latest zipfile and extract it
+
 3. `cd` to the cloned/extracted directory, e.g.:
 
         cd PDFMtEd
@@ -122,17 +129,17 @@ After the installation PDFMtEd Editor and Inspector should be available as entri
 
 ![file manager context menu with PDFMtEd entries](https://github.com/Glutanimate/PDFMtEd/blob/master/screenshots/pdfmted_usage.png)
 
-If you can't find the entries click on *Other application* and navigate to *Show other applications*. You should be able to find the PDFMtEd launchers in the list. Double-click on *PDFMtEd – Inspector* to open the application. This will automatically add a context menu entry. Repeat the procedure for *PDFMtEd – Editor* and you are set.
+If you can't find the entries click on *Other application* (arrow) and navigate to *Show other applications*. You should be able to find the PDFMtEd launchers in the list. Double-click on *PDFMtEd – Inspector* to open the application. This will automatically add a context menu entry. Repeat the procedure for *PDFMtEd – Editor* and you are set.
 
 ### Uninstall PDFMtEd
 
-Follow these steps to uninstall PDFMted:
+Follow these steps to uninstall the PDFMted utilities:
 
 1. `cd` to the project directory, e.g.:
 
-        cd pdfmted
+        cd PDFMtEd
 
-2. Run the uninstaller:
+2. Run `uninstall.sh` as root:
 
         sudo ./uninstall.sh
 
@@ -147,27 +154,27 @@ Follow these steps to uninstall PDFMted:
 
 **Important note:** All changes introduced by ExifTool, and in turn PDFMtEd Editor, are [potentially reversible](http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/PDF.html), which might be a security issue under some circumstances. 
 
-PDFMtEd Inspector (not the Editor!) works around this by using `qpdf` to purge all existing metadata (further reading: [Purging metadata](#purging-metadata)).
+PDFMtEd Inspector (not the Editor!) works around this by using `qpdf` to purge PDF files of all existing metadata (further reading: [Purging metadata](#purging-metadata)).
 
 #### User interface
 
 Here are some helpful pointers:
 
 - you can use the next/previous buttons to navigate between files
+
 - you can transfer metadata to the next file by selecting *Copy tags over to next/previous file* option
+
 - renamed files follow this naming scheme: `${AUTHOR} - ${TITLE} - ${YEAR}`
 
     You can change this by modifying the `update_filename` function in `pdfmted-editor` (I haven't implemented a proper setting for this, yet)
 
-- `exiftool` will sometimes fail at updating the metadata of a document. In most cases this is due to a malformatted PDF file. PDFMtEd automatically detects these issues and prompts you to try to repair the file via `qpdf` or `sejda-console`
-
-    Personally, I've had more success with Sejda than qpdf.
+- `exiftool` will sometimes fail at updating the metadata of a document. In most cases this is because the PDF file is malformatted. PDFMtEd automatically detects these errors and prompts you to try to repair the file via `qpdf` or `sejda-console`. Personally, I've had more success with Sejda than qpdf, so I'd recommend choosing that option if you were able to install `sejda-console`.
 
 #### Command-line options
 
 There are a couple of command-line switches that might be interesting:
 
-- `-r` will instruct PDFMtEd Editor to tick the *rename* option by default
+- `-r` will instruct PDFMtEd Editor to check the *rename* option by default
 - `-u` enables parsing of URIs instead of file paths
 
 ### PDFMtEd Inspector
@@ -196,7 +203,7 @@ PDF documents use a variety of different metadata formats to store meta informat
 
 The oldest and most common tag system is the [PDF Info dictionary][1]. This is the metadata system CLI tools like `pdfinfo` or the `Properties` dialog of various GNOME applications parse.
 
-PDF editors like Adobe Acrobat also use the more recent [XMP metadata format][2].
+PDF editors like Adobe Acrobat additionally use the more recent [XMP metadata format][2].
 
 To avert confusion and ensure consistency across different PDF handlers it is important to keep these two metadata systems synchronized. That's why each field in PDFMtEd Editor's user interface controls two separate metadata tags:
 
@@ -213,6 +220,20 @@ To avert confusion and ensure consistency across different PDF handlers it is im
 Removing old metadata PDF is not as straightforward as you might think. As stated before, `exiftool` operations are [reversible](http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/PDF.html), so removing all PDF tags with `exiftool -all:all=""` is no good on its own.
 
 Only by [rebuilding the PDF file](https://gist.github.com/hubgit/6078384) (e.g. with `qpdf`) we can ensure that all orphan data is  purged irreversibly.
+
+## Known issues
+
+- the Webupd8 PPA currently hosts a GTK2 version of YAD. This build is affected by [a bug](https://groups.google.com/d/msg/yad-common/0WfL8eKMhK4/fs6VN0aQuQUJ) that prevents text labels from aligning properly. As a result, the UI might look somewhat disjointed.
+
+    If you don't want to wait for a fix can compile the YAD GTK3 build from source. Provided your system satisfies all dependencies mentioned on the [YAD project page](http://sourceforge.net/projects/yad-dialog/?source=navbar), you can compile and install YAD with the following routine:
+
+        svn checkout svn://svn.code.sf.net/p/yad-dialog/code/trunk yad-dialog-code
+        cd yad-dialog-code
+        autoreconf -v -i
+        ./configure --with-gtk=gtk3
+        make
+        sudo make install
+
 
 ## License
 
