@@ -1,0 +1,13 @@
+#!/usr/bin/env xdg-open
+
+[Desktop Entry]
+Version=1.0
+Type=Application
+Terminal=false
+Exec=pdfmted-editor -u %U
+Name=PDFMtEd – Editor
+Comment=View and modify PDF metadata
+Icon=pdfmted
+StartupWMClass=pdfmtededitor
+MimeType=application/pdf;
+NoDisplay=true

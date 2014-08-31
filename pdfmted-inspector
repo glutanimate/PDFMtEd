@@ -1,0 +1,434 @@
+#!/bin/bash
+
+# NAME:         PDFMtEd – Inspector
+# VERSION:      0.1
+# AUTHOR:       (c) 2014 Glutanimate <https://github.com/Glutanimate/>
+# DEPENDENCIES: yad exiftool qpdf
+#
+# DESCRIPTION:  Inspect and delete file metadata using exiftool.
+#
+#               This tool was designed with PDF documents in mind but should work
+#               for any file type supported by exiftool
+#
+# NOTES on PDF: - changes introduced by exiftool are incremental, i.e. reversible
+#                 (cf. http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/PDF.html)            
+#               - linearizing PDF files removes metadata orphaned by exiftool
+#                 (cf. https://gist.github.com/hubgit/6078384)
+#               - to completely purge the document of all metadata it might also be
+#                 necessary to remove any remaining pdf info dictionary values; this
+#                 can be achieved with pdftk
+#               - exiftool + qpdf were sufficient in all of my tests, so I refrained from
+#                 implementing pdftk processing
+#               - you can see for yourself if all PDF metadata has been purged by
+#                 looking at the output of <pdfinfo -meta infile.pdf>; pdfinfo
+#                 is part of poppler-utils on Debian/Ubuntu
+#
+#
+# LICENSE:      GNU GPLv3 (http://www.gnu.de/documents/gpl-3.0.en.html)
+#
+# NOTICE:       THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. 
+#               EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES 
+#               PROVIDE THE PROGRAM “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR 
+#               IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY 
+#               AND FITNESS FOR A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND 
+#               PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE,
+#               YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
+#
+#               IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING WILL ANY 
+#               COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS THE PROGRAM AS 
+#               PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, 
+#               INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE 
+#               THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING RENDERED 
+#               INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE 
+#               PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER 
+#               PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+#
+# USAGE:        pdfmted_inspector <file(s) or directory(ies)>
+
+##############  DIALOGS  #################
+
+# Usage message
+
+USAGE="
+Usage: $(basename "$0") <Files/Directories>
+
+    Title:          PDFMtEd – Inspector
+    Author:         (c) 2014 Glutanimate 
+    Description:    Inspect and delete file metadata
+    Arguments:      This script accepts multiple files and directories as input.
+
+    Available options:
+      -h display this help message\
+"
+
+# General settings
+
+YAD_TITLE="PDFMtEd – Inspector"
+WMCLASS="pdfmtedinspector"
+ICON="tag-new"
+NOTIFY_ICON="$ICON"
+WIDTH="1100"
+HEIGHT="700"
+PROGWIDTH="400"
+PROGHEIGHT="100"
+PROGGEO=("--center" "--height=$PROGHEIGHT" "--width=$PROGWIDTH")
+
+# Descriptions and tooltips
+
+TEXT_HOVR_PREVIT="Move back to previous document"
+TEXT_HOVR_NEXTIT="Move to next document in line"
+TEXT_HOVR_CLOSE="Close dialog"
+TEXT_HOVR_DELETE1="Purges the current file of any existing metadata"
+TEXT_HOVR_DELETE2="Purges all files of any existing metadata"
+
+TEXT_WARN_DESCRP="Are you sure you want to purge the following file(s) of all metadata?\
+\n<b>This can't be undone.</b>"
+
+TEXT_NOTI_ERROR1="Query failed. Please check the CLI output."
+TEXT_NOTI_ERROR2="There have been some errors while purging the metadata."
+TEXT_NOTI_SUCCSS2="Metadata purge complete."
+
+############## FUNCTIONS #################
+
+# dependencies
+
+check_deps() {
+    for i in "$@"; do
+      type "$i" > /dev/null 2>&1 
+      if [[ "$?" != "0" ]]; then
+        MISSINGDEPS+=" $i"
+      fi
+    done
+}
+
+gui_check_deps(){
+    check_deps yad exiftool qpdf
+    if [[ -n "$MISSINGDEPS" ]]; then
+      gui_show_error "${TEXT_INFO_DEPERR}
+      ${MISSINGDEPS}"
+      exit 1
+    fi
+}
+
+
+# Preparation
+
+arg_evaluate_options(){
+    # grab options if present
+    while getopts "h" OPTIONS; do
+      case $OPTIONS in
+        h ) echo "$USAGE"
+            exit 0
+            ;;
+       \? ) echo "$USAGE"
+            exit 1
+            ;;
+      esac
+    done
+}
+
+gui_check_correct_files(){
+    arg_check_correct "$@"
+    if [[ -n "$ARGERROR" ]]
+      then
+          gui_show_error "ERROR: Invalid file/folder selection (Error: $ARGERROR)."
+          echo "Exiting..."
+          exit 1
+    fi
+}
+
+gui_check_empty () {
+    if [[ "$EMPTY_ARGS" = 1 ]]; then
+      gui_show_error "ERROR: No files found."
+      echo "Exiting..."
+      exit 1
+    fi
+}
+
+arg_check_correct(){
+    # check if arguments aside from options given
+    if [[ "$#" = "0" ]]
+      then
+          ARGERROR=1
+    fi
+
+    # check if arguments are files or folders
+    for ITEM in "$@"; do
+      if [[ ! -d "$ITEM" && ! -f "$ITEM" ]]
+        then
+            ARGERROR="2, Item: $ITEM"
+      fi
+    done
+}
+
+arg_compose_filearray(){
+    # recursively add files and folders in given arguments to array
+    unset ARGS
+    ARGID="1"
+    while IFS= read -r -d $'\0' FILE; do
+        ARGS[ARGID++]="$FILE"
+    done < <(find "$@" -type f -print0 | sort -z)
+    ARGSTOTAL="${#ARGS[@]}"
+    ARGID="1"
+    if [[ "$ARGSTOTAL" = "0" ]]; then
+      EMPTY_ARGS="1"
+    fi
+}
+
+# Setup
+
+var_unset(){
+    #todo: add all vars that need to be unset on each iteration
+    unset -v LINEARIZE_ERROR
+}
+
+setup_filevars(){
+    FILE="$(readlink -f "$1")"
+    FILENAME="${FILE##*/}"
+}
+
+setup_gui(){
+    MULTIDOC_TITLE="$YAD_TITLE - $FILENAME ($ARGID/$ARGSTOTAL)"
+    TEXT_NOTI_SUCCSS1="'$FILENAME' has been purged of all metadata."
+    # we are using arrays to construct and modify YAD dialogs
+    # multiple documents - show all elements
+    if [[ "$MULTIDOC" = "middle" ]]
+      then
+          MULTIDOC_BUTTONS=(--button="_Previous!go-previous!$TEXT_HOVR_PREVIT:1" \
+          --button="_Next!go-next!$TEXT_HOVR_NEXTIT:2" \
+          --button='Delete _all Metadata!gtk-remove!'"$TEXT_HOVR_DELETE2":5)
+    # multiple documents, first doc - hide previous
+    elif [[ "$MULTIDOC" = "first" ]]
+      then
+          MULTIDOC_BUTTONS=(--button="_Next!go-next!$TEXT_HOVR_NEXTIT:2" \
+          --button='Delete _all Metadata!gtk-remove!'"$TEXT_HOVR_DELETE2":5)
+    # multiple documents, last doc - hide next
+    elif [[ "$MULTIDOC" = "last" ]]
+      then
+          MULTIDOC_BUTTONS=(--button="_Previous!go-previous!$TEXT_HOVR_PREVIT:1" \
+          --button='Delete _all Metadata!gtk-remove!'"$TEXT_HOVR_DELETE2":5)
+    # single document - hide all elements
+    elif [[ "$MULTIDOC" = "single" ]]
+      then
+          MULTIDOC_BUTTONS=()
+    fi
+    
+}
+
+# GUIs
+
+gui_show_results(){
+    yad --text-info --wrap --fontname="Ubuntu Mono 12" \
+    --center --width "$WIDTH" --height "$HEIGHT" \
+    "${MULTIDOC_BUTTONS[@]}" \
+    --button='_Delete Metadata!gtk-remove!'"$TEXT_HOVR_DELETE1":3 \
+    --button="_Close!gtk-close!$TEXT_HOVR_CLOSE":33 \
+    --window-icon "$ICON" --title="$MULTIDOC_TITLE" \
+    2> /dev/null <<< "$GUICONTENTS"
+    RET=$?
+    if [[ "$RET" = 1 ]]
+      then
+          PROGRESSION="PREVIOUS"
+    elif [[ "$RET" = 2 ]]
+      then
+          PROGRESSION="NEXT"
+    elif [[ "$RET" = 3 ]]
+      then
+          PROGRESSION="STAY"
+          gui_delete_metadata "$FILE"
+    elif [[ "$RET" = 5 ]]
+      then
+          PROGRESSION="STAY"
+          gui_delete_metadata "${ARGS[@]}"
+    else
+          echo "Finished."
+          exit 0
+    fi
+}
+
+gui_notify(){
+    notify-send -i "$NOTIFY_ICON" "$YAD_TITLE" "$1"
+}
+
+gui_show_error(){
+    yad --title="$YAD_TITLE" \
+      --center --width="400" --height="100" \
+      --image=dialog-error \
+      --window-icon=dialog-error \
+      --class="$WMCLASS" \
+      --text="$1" \
+      --button="OK":0 2> /dev/null
+    echo "$1"
+}
+
+gui_progress(){
+    # ampersands in gui elements cause issues in gtk/pango markup
+    yad --progress --pulsate --auto-close \
+    "${PROGGEO[@]}" \
+    --image="$ICON" --window-icon="$ICON" \
+    --class="$WMCLASS" \
+    --title="$YAD_TITLE" \
+    --text="Processing files..." \
+    --button='_Cancel!gtk-cancel!':1 \
+    2> /dev/null
+    PROG_RET="$?"
+    if [[ "$PROG_RET" != "0" ]]
+      then
+          exit 1
+    fi
+}
+
+gui_delete_metadata(){
+    yad --text-info \
+    --text="$TEXT_WARN_DESCRP" \
+    --image="dialog-warning" --center \
+    --fontname="Ubuntu Mono 12" \
+    --width="800" --height="300" \
+    --title="$YAD_TITLE" \
+    --text="$TEXT_WARN_DESCRP" \
+    --button="gtk-no":1 \
+    --button="gtk-yes":0 2> /dev/null \
+    <<< "$(printf "%s\n" "$@")"
+    RET="$?"
+    if [[ "$RET" = 0 ]]
+      then
+          echo "Warning: Deleting all metadata..."
+          delete_metadata "$@" | gui_progress
+          RET_DELETE="${PIPESTATUS[0]}"
+          delete_metadata_check_error "$@"
+    elif [[ "$RET" != "1" ]]
+      then
+          echo "Finished."
+          exit 0
+    fi
+}
+
+# Metadata handling
+
+delete_metadata(){
+    for i in "$@"; do
+        FILE="$(readlink -f "$i")"
+        FILENAME="${FILE##*/}"
+        BASENAME="${FILENAME%.*}"
+        DIRNAME="${FILE%/*}"
+        exiftool_purge
+        if [[ "$(file -ib "$FILE" | cut -d';' -f1)" = "application/pdf" ]]
+          then
+              linearize_pdf
+        fi
+    done
+    if [[ "$RET_EXIFTOOL_WRITE" != "0" || ( -n "$RET_QPDF" && "$RET_QPDF" != "0" ) ]]
+      then
+          return 1
+      else
+          return 0
+    fi
+}
+
+linearize_pdf(){
+    echo "#Linearizing $FILENAME..."
+    TEMPFILE="$DIRNAME/${BASENAME}_linearized.pdf"
+    qpdf --linearize "$FILE" "$TEMPFILE"
+    RET_QPDF="$?"
+    if [[ "$RET_QPDF" = "0" ]]
+      then
+          mv "$TEMPFILE" "$DIRNAME/${BASENAME}.pdf"
+    fi
+}
+
+exiftool_purge(){
+    echo "#Purging $FILENAME..."
+    exiftool -e -overwrite_original -all:all="" "$FILE"
+    RET_EXIFTOOL_WRITE="$?"
+}
+
+delete_metadata_check_error(){
+    if [[ "$RET_DELETE" != "0" ]]
+      then
+          gui_notify "$TEXT_NOTI_ERROR2"
+      else
+          if [[ "$#" = "1" ]]
+            then
+                gui_notify "$TEXT_NOTI_SUCCSS1"
+            else
+                gui_notify "$TEXT_NOTI_SUCCSS2"
+          fi
+            
+      fi
+}
+
+get_metadata(){
+    EXIFOUT="$(exiftool -e -a -s -G1 "$FILE")"
+}
+
+get_metadata_check_error(){
+    RET_EXIFTOOL_READ="$?"
+    if [[ "$RET_EXIFTOOL_READ" != "0" || -z "$EXIFOUT" ]]
+      then
+          GUICONTENTS="$TEXT_NOTI_ERROR1"
+      else
+          GUICONTENTS="$EXIFOUT"
+    fi
+}
+
+# Main
+
+main_check_argid(){
+    echo "Processing $ARGID of $ARGSTOTAL"
+    if [[ "$ARGSTOTAL" = "1" ]]
+      then
+          MULTIDOC="single"
+    elif [[ "$ARGID" = "1" ]]
+      then
+          MULTIDOC="first"
+    elif [[ "$ARGID" = "$ARGSTOTAL" ]]
+      then
+          MULTIDOC="last"
+    else
+          MULTIDOC="middle" 
+    fi
+}
+
+main_iteration(){
+    var_unset
+    setup_filevars "$1"
+    setup_gui
+    get_metadata
+    get_metadata_check_error
+    gui_show_results
+}
+
+main_check_progression(){
+    if [[ "$PROGRESSION" = "NEXT" ]]
+      then
+          ARGID="$((ARGID+1))"
+          main
+    elif [[ "$PROGRESSION" = "PREVIOUS" ]]
+      then
+          ARGID="$((ARGID-1))"
+          main
+    elif [[ "$PROGRESSION" = "STAY" ]]
+      then
+          ARGID="$ARGID"
+          main
+    fi
+}
+
+main(){
+    main_check_argid
+    main_iteration "${ARGS[$ARGID]}"
+    main_check_progression
+}
+
+############## USGCHECKS #################
+
+gui_check_deps
+arg_evaluate_options "$@"
+shift $((OPTIND-1))
+gui_check_correct_files "$@"
+arg_compose_filearray "$@"
+gui_check_empty
+
+################ MAIN ####################
+
+main

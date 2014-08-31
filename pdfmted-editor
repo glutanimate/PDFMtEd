@@ -1,0 +1,737 @@
+#!/bin/bash
+# NAME:         PDFMtEd – Editor
+# VERSION:      0.1
+# AUTHOR:       (c) 2014 Glutanimate
+# DEPENDENCIES: yad exiftool python2.7 (sejda-pdf) (qpdf)
+#               
+# DESCRIPTION:  View and edit PDF metadata using exiftool.
+#
+# LICENSE:      GNU GPLv3 (http://www.gnu.de/documents/gpl-3.0.en.html)
+#
+# NOTICE:       THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. 
+#               EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES 
+#               PROVIDE THE PROGRAM “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR 
+#               IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY 
+#               AND FITNESS FOR A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND 
+#               PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE,
+#               YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
+#
+#               IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING WILL ANY 
+#               COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS THE PROGRAM AS 
+#               PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, 
+#               INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE 
+#               THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING RENDERED 
+#               INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE 
+#               PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER 
+#               PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+#
+# USAGE:        pdfmted_editor [-r|-u] <file(s) or directory(ies)>
+
+################ GLOBVAR #################
+
+EXECUTABLE="$(readlink -f "$0")"
+PROGDIR="${EXECUTABLE%/*}"
+THUMBNAILER="$PROGDIR/pdfmted-thumbnailer.py"
+# use RAMdisk instead of /tmp/ to improve performance
+TMPDIR="/run/shm/${0##*/}"
+
+############### SETTINGS #################
+
+# Supply password for protected PDF files
+PASSWORD=""
+# Rename modified files by default?
+RENAME_OPT="FALSE"
+
+##############  DIALOGS  #################
+
+# Usage message
+
+USAGE="
+Usage: $(basename "$0") [-r|-u|-h] <PDF Files/Directories>
+
+    Title:          PDFMtEd – Editor
+    Author:         (c) 2014 Glutanimate 
+    Description:    View and edit PDF metadata
+    Arguments:      This script accepts multiple PDF files and 
+                    directories as input.
+
+Available options:
+    -r rename files by default
+    -u arguments are URIs
+    -h display this help message\
+"
+
+# General settings
+
+YAD_TITLE="PDFMtEd – Editor"
+WMCLASS="pdfmtededitor"
+ICON="application-pdf"
+WIDTH="800"
+HEIGHT="650"
+PROGWIDTH="400"
+PROGHEIGHT="100"
+
+# Descriptions and tooltips
+
+TEXT_INFO_DEPERR="Error: Missing dependencies. Please install the \
+following:"
+
+TEXT_MAIN_DESCRP="\
+<b>Important note</b>:
+
+Empty fields will <b>delete</b> the associated metadata. \
+However, modifications performed by exiftool are <b>reversible</b>. \
+To purge the file of all metadata please use PDFMtEd – Inspector
+"
+
+TEXT_CHCK_SAVECH="Save changes, file will be skipped if unchecked"
+TEXT_CHCK_RENMFL="Rename based on tags"
+TEXT_CHCK_DUPLIC="Copy tags over to next/previous file"
+
+TEXT_HOVR_CANCEL="Cancel and exit"
+TEXT_HOVR_FNNISH="Save (if option selected) and exit"
+TEXT_HOVR_PREVIT="Move back to previous document"
+TEXT_HOVR_NEXTIT="Move to next document in line"
+
+TEXT_BTTN_PDFVWR="_Open in PDF viewer"
+TEXT_HOVR_PDFVWR="Open document with default PDF viewer"
+
+TEXT_BTTN_SHWFLD="Show in parent _directory"
+TEXT_HOVR_SHWFLD="Open parent directory with default file manager"
+
+TEXT_BTTN_CLRALL="C_lear all"
+TEXT_HOVR_CLRALL="Clear all fields"
+
+TEXT_INFO_WARNG1="Something went wrong while writing the metadata. Processing the document with \
+sejda (recommended) or linearizing it with qpdf helps in these cases. Want to proceed?"
+TEXT_NOTI_SUCCE1="Metadata succesfully updated."
+TEXT_NOTI_ERROR1="Post-processing failed."
+
+############## FUNCTIONS #################
+
+# dependencies
+
+check_deps() {
+    for i in "$@"; do
+      type "$i" > /dev/null 2>&1 
+      if [[ "$?" != "0" ]]; then
+        MISSINGDEPS+=" $i"
+      fi
+    done
+}
+
+gui_check_deps(){
+    check_deps yad exiftool python2.7
+    if [[ -n "$MISSINGDEPS" ]]; then
+      gui_show_error "${TEXT_INFO_DEPERR}
+      ${MISSINGDEPS}"
+      exit 1
+    fi
+}
+
+# cleanup
+
+var_unset(){
+    unset -v KEYWORDS SUBJECT AUTHOR TITLE_FN UPDATED_NAME
+}
+
+cleanup(){
+  [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -r "$TMPDIR"
+}
+
+# evaluate and check arguments
+
+arg_evaluate_options(){
+    # grab options if present
+    while getopts "ruh" OPTIONS; do
+      case $OPTIONS in
+        r ) RENAME_OPT="TRUE"
+            ;;
+        u ) URI_OPT="TRUE"
+            ;;
+        h ) echo "$USAGE"
+            exit 0
+            ;;
+       \? ) echo "$USAGE"
+            exit 1
+            ;;
+      esac
+    done
+}
+
+arg_check_correct(){
+    # check if arguments aside from options given
+    if [[ "$#" = "0" ]]
+      then
+          error_log 1
+    fi
+
+    # check if arguments are files or folders
+    for ITEM in "$@"; do
+      if [[ ! -d "$ITEM" && ! -f "$ITEM" ]]
+        then
+            error_log 3
+      fi
+    done
+
+    # notify user and exit
+    if [[ "$ARGERROR" = "1" ]]
+      then
+          gui_show_error "ERROR: No files/folder selected."
+          echo "Exiting..."
+          exit 1
+    fi
+}
+
+arg_uri_to_path(){
+  # handle cases where we have to use "pseudo-uris"
+  cnt=0
+  FILEARGS=()
+  for URI in "$@"; do
+    # only handles file:// prefix
+    # for other uri-specific substitutions we would have to
+    # use python+gio-bindings
+    FILEARGS[$cnt]="$(echo "$URI" | sed "s/^file:\/\///g")"
+    ((cnt++))
+  done
+}
+
+arg_compose_filearray(){
+    # recursively add pdf files and folders in given arguments to array
+    unset ARGS
+    ARGID="1" # start array at 1
+    while IFS= read -r -d $'\0' FILE; do
+        if [[ ! "$(file -ib "$FILE")" == *application/pdf* ]]
+          then
+              echo "Error: '$FILE' is not a pdf file. Ignoring."
+              continue
+        fi
+        ARGS[ARGID++]="$FILE"
+    done < <(find "$@" -type f -name '*.pdf' -print0 | sort -z --version-sort)
+    # numerical-composite (e.g. 1.1<1.2), zero-delimited sorting
+    ARGSTOTAL="${#ARGS[@]}"
+    ARGID="1"
+    if [[ "$ARGSTOTAL" = "0" ]]; then
+      gui_show_error "ERROR: No PDF files found."
+      echo "Exiting..."
+      exit 1
+    fi
+}
+
+# Error handling
+
+error_log(){
+    if [[ "$1" = "1" ]]; then
+      ARGERROR="1"
+      echo "ARG ERROR: insufficient arguments given." 
+    elif [[ "$1" = "2" ]]; then
+      ARGERROR="1"
+      echo "ARG ERROR: illegal arguments ('$ITEM' is not a file or directory.)"
+    elif [[ "$1" = "3" ]]; then
+      WRITEERROR="1"
+      echo "WRITE ERROR: File not updated. Likely an issue with exiftool"
+    elif [[ "$1" = "5" ]]; then
+      PSTPRCERROR="1"
+      echo "POST PROCESSING ERROR: qpdf/sejda failed."
+    fi
+}
+
+# Set up environment
+
+setup_filevars(){
+    FILE="$(readlink -f "$1")"
+    FILENAME="${FILE##*/}"
+    BASENAME="${FILENAME%.*}"
+    DIRNAME="${FILE%/*}"
+    PREV_FILE="${ARGS[$ARGID-1]}"
+    NEXT_FILE="${ARGS[$ARGID+1]}"
+    PREV_FILENAME="${PREV_FILE##*/}"
+    NEXT_FILENAME="${NEXT_FILE##*/}"
+}
+
+# Set up GUI
+
+setup_geometry(){
+  GEOMETRYOPTS=("--center" "--height=$HEIGHT" "--width=$WIDTH")
+  PROGGEO=("--center" "--height=$PROGHEIGHT" "--width=$PROGWIDTH")
+}
+
+setup_gui(){
+    MULTIDOC_TITLE="$YAD_TITLE ($ARGID/$ARGSTOTAL)"
+    # we are using arrays to construct and modify YAD dialogs
+    # multiple documents - show all elements
+    if [[ "$MULTIDOC" = "middle" ]]
+      then
+          MULTIDOC_FIELDS=(\
+          --field="$TEXT_CHCK_DUPLIC":CHK "FALSE" \
+          --field="<b>Previous Document</b>:":RO "$PREV_FILENAME" \
+          --field="<b>Next Document</b>:":RO "$NEXT_FILENAME")
+          MULTIDOC_BUTTONS=(--button="_Previous!go-previous!$TEXT_HOVR_PREVIT:1" \
+          --button="_Next!go-next!$TEXT_HOVR_NEXTIT:2")
+    # multiple documents, first doc - hide previous
+    elif [[ "$MULTIDOC" = "first" ]]
+      then
+          MULTIDOC_FIELDS=(\
+          --field="$TEXT_CHCK_DUPLIC":CHK "FALSE" \
+          --field="<b>Next Document</b>:":RO "$NEXT_FILENAME" )
+          MULTIDOC_BUTTONS=(--button="_Next!go-next!$TEXT_HOVR_NEXTIT:2")
+    # multiple documents, last doc - hide next
+    elif [[ "$MULTIDOC" = "last" ]]
+      then
+          MULTIDOC_FIELDS=(\
+          --field="$TEXT_CHCK_DUPLIC":CHK "FALSE" \
+          --field="<b>Previous Document</b>:":RO "$PREV_FILENAME")
+          MULTIDOC_BUTTONS=(--button="_Previous!go-previous!$TEXT_HOVR_PREVIT:1")
+    # single document - hide all elements
+    elif [[ "$MULTIDOC" = "single" ]]
+      then
+          HEIGHT="620"
+          MULTIDOC_FIELDS=()
+          MULTIDOC_BUTTONS=()
+    fi
+    setup_geometry
+}
+
+# GUIs
+
+gui_notify(){
+    notify-send -i "$NOTIFY_ICON" "$YAD_TITLE" "$1"
+}
+
+gui_progress(){
+    # ampersands in gui elements cause issues in gtk/pango markup
+    BASENAME_PANGO="$(echo "$BASENAME" | sed 's/\&/\&amp;/g')"
+    yad --progress --pulsate --auto-close \
+    "${PROGGEO[@]}" \
+    --image="$ICON" --window-icon="$ICON" \
+    --class="$WMCLASS" \
+    --title="$YAD_TITLE" \
+    --text="Processing <b>$BASENAME_PANGO</b> ..." \
+    --button='_Cancel!gtk-cancel!':1 \
+    2> /dev/null
+    PROG_RET="$?"
+    if [[ "$PROG_RET" != "0" ]]
+      then
+          kill -s TERM "$TOP_PID"
+    fi
+}
+
+gui_show_error(){
+    yad --title="$YAD_TITLE" \
+      --center --width="400" --height="100" \
+      --image=dialog-error \
+      --window-icon=dialog-error \
+      --class="$WMCLASS" \
+      --text="$1" \
+      --button="OK":0 2> /dev/null
+    echo "$1"
+}
+
+gui_metadata_entry_multi(){
+    NEW_METADATA="$( \
+    yad --form --scroll \
+    --always-print-result \
+    "${GEOMETRYOPTS[@]}" \
+    --image="$IMAGE" --window-icon="$ICON" \
+    --class="$WMCLASS" \
+    --title="$MULTIDOC_TITLE" \
+    --buttons-layout=end \
+    --button="_Cancel!gtk-cancel!$TEXT_HOVR_CANCEL:33" \
+    "${MULTIDOC_BUTTONS[@]}" \
+    --button="_Finish!gtk-ok!$TEXT_HOVR_FNNISH:3" \
+    --field="<b>Current Document</b>:":RO "$FILENAME"\
+    --field="":LBL "" \
+    --field="$TEXT_MAIN_DESCRP":LBL "" \
+    --field="Author:" "$AUTHOR_ORIGINAL" \
+    --field="Title:" "$TITLE_ORIGINAL" \
+    --field="Year:":NUM "$YEAR_ORIGINAL[!0..3000[!1]]" \
+    --field="Keywords:" "$KEYWORDS_ORIGINAL" \
+    --field="Subject:" "$SUBJECT_ORIGINAL" \
+    --field "$TEXT_BTTN_CLRALL!gtk-clear!$TEXT_HOVR_CLRALL":FBTN \
+      "@bash -c gui_clear_fields" \
+    --field="":LBL "" \
+    --field="$TEXT_BTTN_PDFVWR!application-pdf!$TEXT_HOVR_PDFVWR:FBTN" \
+      "bash -c \"gui_open '$FILE'\"" \
+    --field="$TEXT_BTTN_SHWFLD!folder!$TEXT_HOVR_SHWFLD:FBTN" \
+      "bash -c \"gui_open '$DIRNAME'\"" \
+    --field="":LBL "" \
+    --field="$TEXT_CHCK_SAVECH":CHK "TRUE" \
+    --field="$TEXT_CHCK_RENMFL":CHK "$RENAME_OPT" \
+    "${MULTIDOC_FIELDS[@]}" \
+    2> /dev/null)"
+    RET_MAIN=$?
+    if [[ "$RET_MAIN" = 1 ]]
+      then
+          PROGRESSION="PREVIOUS"
+    elif [[ "$RET_MAIN" = 2 ]]
+      then
+          PROGRESSION="NEXT"
+    elif [[ "$RET_MAIN" = 3 ]]
+      then
+          PROGRESSION="FINISH"
+    else
+          echo "Aborted."
+          exit 1
+    fi
+}
+
+gui_postprocess_pdf(){
+    yad --title="$YAD_TITLE" \
+    --center --width="400" --height="100" \
+    --image=dialog-error \
+    --window-icon=dialog-error \
+    --class="$WMCLASS" \
+    --text="$TEXT_INFO_WARNG1" \
+    --button="_Process with Sejda!gtk-ok!$TEXT_HOVR_PSTPRC_SEJ:0" \
+    --button="_Linearize!gtk-ok!$TEXT_HOVR_PSTPRC_LIN:2" \
+    --button="_Cancel!gtk-cancel!$TEXT_HOVR_PSTPRC_CANCEL:1"
+    RET_PSTPRC="$?"
+    if [[ "$RET_PSTPRC" = "0" ]]; then
+      if ! type sejda-console > /dev/null 2>&1; then
+        gui_show_error "Error: Sejda not installed."
+        gui_postprocess_pdf
+        return
+      fi
+      sejda_process_pdf | gui_progress
+      check_modify_success
+      error_recheck_write
+    elif [[ "$RET_PSTPRC" = "2" ]]; then
+      if ! type qpdf > /dev/null 2>&1; then
+        gui_show_error "Error: qpdf not installed."
+        gui_postprocess_pdf
+        return
+      fi
+      linearize_pdf | gui_progress
+      check_modify_success
+      error_recheck_write
+    else
+      return 1
+    fi      
+}
+
+
+# GUI extensions
+
+# create thumbnail
+gui_thumbnail_generate() {
+    if [[ -f "$THUMBNAILER" ]]; then
+      echo "#Generating preview..."
+      $THUMBNAILER "$FILE" > /dev/null 2>&1
+    fi
+}
+
+# assign thumbnail
+gui_thumbnail_assign(){
+
+    PREVIEWIMG="$(python2.7 -c "import gio; import sys; \
+    print gio.File(sys.argv[1]).query_info('*').get_attribute_byte_string \
+    ('''thumbnail::path''')" "$FILE")"
+
+    if [[ "$(file -ib "$FILE" | cut -d';' -f1)" != "application/pdf" || ! -f "$PREVIEWIMG" ]]
+      then
+          PREVIEWIMG="$ICON"
+    fi
+
+    IMAGE="$PREVIEWIMG"
+    NOTIFY_ICON="$PREVIEWIMG"
+}
+
+# generic yad xdg-open function
+gui_open(){
+  xdg-open "$1" > /dev/null 2>&1 &
+}
+
+# clear yad fields
+gui_clear_fields(){
+    for FIELDNR in {4..8}; do
+      echo "$FIELDNR:"
+    done
+}
+
+# preserve metadata for next document in line
+duplicate_metadata () {
+    AUTHOR_ORIGINAL="$AUTHOR"
+    TITLE_ORIGINAL="$TITLE"
+    YEAR_ORIGINAL="$YEAR"
+    SUBJECT_ORIGINAL="$SUBJECT"
+    KEYWORDS_ORIGINAL="$KEYWORDS"
+}
+
+
+process_yad_formchoices(){
+    echo "$NEW_METADATA"
+    AUTHOR="$(echo "$NEW_METADATA" | cut -d '|' -f4)"
+    TITLE="$(echo "$NEW_METADATA" | cut -d '|' -f5)"
+    YEAR="$(echo "$NEW_METADATA" | cut -d '|' -f6 | cut -d ',' -f1)"
+    KEYWORDS="$(echo "$NEW_METADATA" | cut -d '|' -f7)"
+    SUBJECT="$(echo "$NEW_METADATA" | cut -d '|' -f8)"
+    SAVECHOICE="$(echo "$NEW_METADATA" | cut -d '|' -f14)"
+    RENAMECHOICE="$(echo "$NEW_METADATA" | cut -d '|' -f15)"
+    DUPLICATECHOICE="$(echo "$NEW_METADATA" | cut -d '|' -f16)"
+    MODIFYDATE="$(date +"%Y:%m:%d %H:%M:%S")"
+    if [[ "$YEAR" = "0" ]]; then
+      CREATEDATE=""
+    else
+      CREATEDATE="$(printf "%04d" "$YEAR"):01:01 00:00:00"
+    fi
+}
+
+# Metadata input
+
+read_metadata() {
+    echo "#Reading embedded metadata..."
+    exiftool -e -S -sep ";" -PDF:Title -PDF:Author -PDF:Subject \
+    -PDF:Keywords -PDF:CreateDate -PDF:ModifyDate \
+    "$FILE" > "$PROGPIPE"
+}
+
+print_original_metadata() {
+    echo "###Original metadata:"
+    echo ""
+    echo "Author:               $AUTHOR_ORIGINAL"
+    echo "Title:                $TITLE_ORIGINAL"
+    echo "Year:                 $YEAR_ORIGINAL"
+    echo "Creation date:        $CREATEDATE_ORIGINAL"
+    echo "Modification date:    $MODIFYDATE_ORIGINAL"
+    echo "Subject:              $SUBJECT_ORIGINAL"
+    echo "Keywords:             $KEYWORDS_ORIGINAL"
+}
+
+evaluate_original_metadata() {
+    METADATA_PDF="$( [[ -f "$PROGPIPE" ]] && cat "$PROGPIPE")"
+    AUTHOR_ORIGINAL="$(echo "$METADATA_PDF" | sed -n 's/Author: //p')"
+    TITLE_ORIGINAL="$(echo "$METADATA_PDF" | sed -n 's/Title: //p')"
+    CREATEDATE_ORIGINAL="$(echo "$METADATA_PDF" | sed -n 's/CreateDate: //p')"
+    YEAR_ORIGINAL="${CREATEDATE_ORIGINAL:0:4}" 
+    MODIFYDATE_ORIGINAL="$(echo "$METADATA_PDF" | sed -n 's/ModifyDate: //p')"
+    SUBJECT_ORIGINAL="$(echo "$METADATA_PDF" | sed -n 's/Subject: //p')"
+    KEYWORDS_ORIGINAL="$(echo "$METADATA_PDF" | sed -n 's/Keywords: //p')"
+}
+
+# Metadata output
+
+delete_metadata(){
+    echo "#Deleting existing metadata"
+    exiftool -e -overwrite_original -all:all="" "$FILE"
+}
+
+write_metadata(){
+    echo "#Writing new metadata"
+    exiftool -e -overwrite_original -password "$PASSWORD" -sep ";" \
+    -PDF:Title="$TITLE" -PDF:Author="$AUTHOR" \
+    -PDF:Subject="$SUBJECT" -PDF:Keywords="$KEYWORDS" \
+    -PDF:ModifyDate="$MODIFYDATE" -PDF:CreateDate="$CREATEDATE" \
+    -XMP-dc:Subject="$KEYWORDS" -XMP-dc:Description="$SUBJECT" -XMP-dc:Title="$TITLE" \
+    -XMP-dc:Creator="$AUTHOR" -XMP-dc:Date="$CREATEDATE" \
+     "$FILE"
+    echo "$?" > "$ERRORPIPE1"
+}
+
+update_metadata(){
+    ( delete_metadata; write_metadata ) | gui_progress
+    check_modify_success
+    error_check_write
+}
+
+print_updated_metadata() {
+    echo "###Updated metadata:"
+    echo ""
+    echo "Author:               $AUTHOR"
+    echo "Title:                $TITLE"
+    echo "Year:                 $YEAR"
+    echo "Creation date:        $CREATEDATE"
+    echo "Modificaiton date:    $MODIFYDATE"
+    echo "Subject:              $SUBJECT"
+    echo "Keywords:             $KEYWORDS"
+}
+
+update_filename(){
+    TARGETFOLDER="$DIRNAME"
+    # replace characters in title that might cause issues on some file systems
+    TITLE_FN="$(echo "$TITLE" | sed -e 's/\:/\;/g' -e 's/\&/and/g')"
+    # Modify the following lines to change the naming scheme:
+    # (default naming scheme: ${AUTHOR} - ${TITLE_FN} - ${YEAR})
+    if [[ -n "$AUTHOR" ]]; then
+      UPDATED_NAME="$AUTHOR"
+    fi
+    if [[ -n "$TITLE" ]]; then
+      if [[ -n "$UPDATED_NAME" ]]; then
+        UPDATED_NAME+=" - $TITLE_FN"
+      else
+        UPDATED_NAME="$TITLE"
+      fi  
+    fi
+    if [[ -n "$YEAR" && "$YEAR" != "0" ]]; then
+      if [[ -n "$UPDATED_NAME" ]]; then
+        UPDATED_NAME+=" - $YEAR"
+      else
+        UPDATED_NAME="$YEAR"
+      fi
+    fi
+    echo "Updating file name..."
+    mv "$FILE" "$TARGETFOLDER/$UPDATED_NAME.pdf"
+    ARGS[$ARGID]="$TARGETFOLDER/$UPDATED_NAME.pdf"  # make sure to update file array with
+                                                    # new location
+}
+
+# Error checks and workarounds
+
+# check if modification was successful
+check_modify_success(){
+    # if the PDF ModifyDate hasn't been altered we can assume
+    # that the exiftool tagging failed
+    MODDATE_CHECK="$(exiftool -e -S -sep ";" -PDF:ModifyDate "$FILE"\
+    | sed -n 's/ModifyDate: //p')"
+    if [[ "$MODDATE_CHECK" != "$MODIFYDATE" ]]
+      then
+          error_log 3
+    fi
+}
+
+error_check_write(){
+    WRITE_RETURNCODE="$(cat "$ERRORPIPE1")"
+    if [[ "$WRITE_RETURNCODE" != "0" || "$WRITEERROR" = "1" ]]
+      then
+          WRITEERROR="0"
+          echo "$TEXT_INFO_WARNG1"
+          gui_postprocess_pdf
+      else
+          gui_notify "$TEXT_NOTI_SUCCE1"
+          echo "Success."
+    fi
+}
+
+error_recheck_write(){
+    PSTPRC_RETURNCODE="$(cat "$ERRORPIPE2")"
+    if [[ "$PSTPRC_RETURNCODE" != "0" || "$WRITEERROR" = "1" ]]
+      then
+          error_log 4
+          echo "$TEXT_NOTI_ERROR1"
+          gui_notify "$TEXT_NOTI_ERROR1"
+      else
+          gui_notify "$TEXT_NOTI_SUCCE1"
+          echo "Success."
+    fi
+}
+
+sejda_process_pdf(){
+    # Sejda does not preserve any document metadata
+    # so we have to perform the exiftool actions again;
+    # we use delete_metadata() in order to remove sejda-related metadata
+    echo "#Running Sejda on $FILENAME..."
+    TEMPFILE="$DIRNAME/${BASENAME}_sejda.pdf"
+    sejda-console merge --compressed -v 7 -f "$FILE" -o "$TEMPFILE"
+    RET_POSTPROC="$?"
+    if [[ "$RET_POSTPROC" = "0" ]]; then
+      mv "$TEMPFILE" "$DIRNAME/${BASENAME}.pdf"
+      delete_metadata
+      write_metadata
+    fi
+    echo "$RET_POSTPROC" > "$ERRORPIPE2"
+}
+
+linearize_pdf(){
+    # qpdf only preserves metadata that is not marked as
+    # obsolete by exiftool; to purge all existing (and potentially
+    # corrupted metadata entries) we first delete all metadata,
+    # linearize with qpdf, and then rewrite the metadata
+    echo "#Linearizing $FILENAME..."
+    delete_metadata
+    TEMPFILE="$DIRNAME/${BASENAME}_linearized.pdf"
+    qpdf --linearize "$FILE" "$TEMPFILE"
+    RET_QPDF="$?"
+    if [[ "$RET_QPDF" = "0" ]]; then
+      mv "$TEMPFILE" "$DIRNAME/${BASENAME}.pdf"
+      write_metadata
+    fi
+    echo "$RET_QPDF" > "$ERRORPIPE2"
+}
+
+# Main
+
+main_check_argid(){
+    echo "Processing $ARGID of $ARGSTOTAL"
+    if [[ "$ARGSTOTAL" = "1" ]]
+      then
+          MULTIDOC="single"
+    elif [[ "$ARGID" = "1" ]]
+      then
+          MULTIDOC="first"
+    elif [[ "$ARGID" = "$ARGSTOTAL" ]]
+      then
+          MULTIDOC="last"
+    else
+          MULTIDOC="middle" 
+    fi
+}
+
+main_iteration(){
+    var_unset
+    setup_filevars "$1"
+    setup_gui
+    ( gui_thumbnail_generate ; read_metadata ) | gui_progress
+    gui_thumbnail_assign
+    evaluate_original_metadata
+    [[ "$DUPLICATECHOICE" = "TRUE" ]] && duplicate_metadata
+    print_original_metadata
+    gui_metadata_entry_multi
+    process_yad_formchoices
+    print_updated_metadata
+    [[ "$SAVECHOICE" = "TRUE" ]] && update_metadata
+    [[ "$SAVECHOICE" = "TRUE" && "$RENAMECHOICE" = "TRUE" ]] && update_filename
+}
+
+main_check_progression(){
+    if [[ "$PROGRESSION" = "NEXT" ]]
+      then
+          ARGID="$((ARGID+1))"
+          main
+    elif [[ "$PROGRESSION" = "PREVIOUS" ]]
+      then
+          ARGID="$((ARGID-1))"
+          main
+    elif [[ "$PROGRESSION" = "FINISH" ]]
+      then
+          echo "Finished."
+          exit 0
+    fi
+}
+
+main(){
+    main_check_argid
+    main_iteration "${ARGS[$ARGID]}"
+    main_check_progression
+}
+
+############## FCT EXPORT ################
+
+# functions assigned to yad buttons need to be exported
+
+export -f gui_clear_fields
+export -f gui_open
+
+############### CLEANUP ##################
+
+trap "cleanup; exit" EXIT
+
+############## PREPWORK ###################
+
+TOP_PID="$$"
+mkdir -p "$TMPDIR"
+PROGPIPE="$(mktemp -u --tmpdir="$TMPDIR" XXXXXXXX)"
+ERRORPIPE1="$(mktemp -u --tmpdir="$TMPDIR" XXXXXXXX)"
+ERRORPIPE2="$(mktemp -u --tmpdir="$TMPDIR" XXXXXXXX)"
+
+############## USGCHECKS #################
+
+gui_check_deps
+arg_evaluate_options "$@"
+shift $((OPTIND-1))
+FILEARGS=("$@")
+[[ "$URI_OPT" = "TRUE" ]] && arg_uri_to_path "${FILEARGS[@]}"
+arg_check_correct "${FILEARGS[@]}"
+arg_compose_filearray "${FILEARGS[@]}"
+
+################ MAIN ####################
+
+main
