@@ -221,11 +221,13 @@ Removing PDF metadata is not as straightforward as you might think. As stated be
 
 Only by [rebuilding the PDF file](https://gist.github.com/hubgit/6078384) (e.g. with `qpdf`) we can ensure that all orphan data is  purged irreversibly.
 
+**Note:** This method does not remove metadata included in embedded objects (e.g. images, vector graphics). To see if your file contains any residual metadata entries you could use a tool like [strings](http://man.cx/?page=strings&do%5Bgo%5D=go) that can look for printable strings in binary data such as PDF files.
+
 ## Known issues
 
 - the Webupd8 PPA currently hosts a GTK2 version of YAD. This build is affected by [a bug](https://groups.google.com/d/msg/yad-common/0WfL8eKMhK4/fs6VN0aQuQUJ) that prevents text labels from aligning properly. As a result, the UI might look somewhat disjointed.
 
-    If you don't want to wait for a fix can directly compile the YAD GTK3 build from source. Provided your system satisfies all dependencies mentioned on the [YAD project page](http://sourceforge.net/projects/yad-dialog/?source=navbar), you may compile and install YAD with the following routine:
+    If you don't want to wait for a fix you can directly compile the YAD GTK3 build from source. Provided your system satisfies all dependencies mentioned on the [YAD project page](http://sourceforge.net/projects/yad-dialog/?source=navbar), you may compile and install YAD with the following routine:
 
         svn checkout svn://svn.code.sf.net/p/yad-dialog/code/trunk yad-dialog-code
         cd yad-dialog-code
