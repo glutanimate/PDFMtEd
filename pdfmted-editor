@@ -240,9 +240,11 @@ error_log(){
 
 setup_filevars(){
     FILE="$(readlink -f "$1")"
+    FILE_ESCAPED="${FILE//%/%%}"
     FILENAME="${FILE##*/}"
     BASENAME="${FILENAME%.*}"
     DIRNAME="${FILE%/*}"
+    DIRNAME_ESCAPED="${FILE_ESCAPED%/*}"
     PREV_FILE="${ARGS[$ARGID-1]}"
     NEXT_FILE="${ARGS[$ARGID+1]}"
     PREV_FILENAME="${PREV_FILE##*/}"
@@ -351,9 +353,9 @@ gui_metadata_entry_multi(){
       "@bash -c gui_clear_fields" \
     --field="":LBL "" \
     --field="$TEXT_BTTN_PDFVWR!application-pdf!$TEXT_HOVR_PDFVWR:FBTN" \
-      "bash -c \"gui_open '$FILE'\"" \
+      "bash -c \"gui_open '$FILE_ESCAPED'\"" \
     --field="$TEXT_BTTN_SHWFLD!folder!$TEXT_HOVR_SHWFLD:FBTN" \
-      "bash -c \"gui_open '$DIRNAME'\"" \
+      "bash -c \"gui_open '$DIRNAME_ESCAPED'\"" \
     --field="":LBL "" \
     --field="$TEXT_CHCK_SAVECH":CHK "TRUE" \
     --field="$TEXT_CHCK_RENMFL":CHK "$RENAME_OPT" \
@@ -438,7 +440,8 @@ gui_thumbnail_assign(){
 
 # generic yad xdg-open function
 gui_open(){
-  xdg-open "$1" > /dev/null 2>&1 &
+  PATH_ESCAPED="${1//%/%25}"
+  xdg-open "$PATH_ESCAPED" > /dev/null 2>&1 &
 }
 
 # clear yad fields
