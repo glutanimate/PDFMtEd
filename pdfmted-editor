@@ -465,7 +465,7 @@ process_yad_formchoices(){
     echo "$NEW_METADATA"
     AUTHOR="$(echo "$NEW_METADATA" | cut -d '|' -f4)"
     TITLE="$(echo "$NEW_METADATA" | cut -d '|' -f5)"
-    YEAR="$(echo "$NEW_METADATA" | cut -d '|' -f6 | cut -d ',' -f1)"
+    YEAR="$(echo "$NEW_METADATA" | cut -d '|' -f6 | cut -d ',' -f1 | cut -d '.' -f1)"
     KEYWORDS="$(echo "$NEW_METADATA" | cut -d '|' -f7)"
     SUBJECT="$(echo "$NEW_METADATA" | cut -d '|' -f8)"
     SAVECHOICE="$(echo "$NEW_METADATA" | cut -d '|' -f14)"
