@@ -6,6 +6,8 @@
 
 **PDFMtEd** (**PDF** <b>M</b>e<b>t</b>adata <b>Ed</b>itor) is a set of tools designed to simplify working with PDF metadata on Linux. The utilities hosted in this repository are graphical front-ends to the marvelous [ExifTool](http://www.sno.phy.queensu.ca/~phil/exiftool/) by Phil Harvey.
 
+This repository is a fork of [glutanimate/PDFMtEd](https://github.com/glutanimate/PDFMtEd), ported to Python 3.
+
 ## Table of contents
 
 <!-- MarkdownTOC -->
@@ -103,7 +105,7 @@ Install all dependencies on Ubuntu with the following commands:
 - [YAD](http://sourceforge.net/projects/yad-dialog/): graphical front-end for bash scripts, a Zenity fork; provided by Webupd8 PPA
 - [ExifTool](http://www.sno.phy.queensu.ca/~phil/exiftool/): general purpose metadata editing application and library
 - [qpdf](http://qpdf.sourceforge.net/): command-line program that does structural, content-preserving transformations on PDF files; used in this project to restore broken PDF files and purge documents of residual metadata
-- Python 2.7 is required for the thumbnailer and thumbnail preview to work. This should be installed on your system by default.
+- Python 3 is required for the thumbnailer and thumbnail preview to work. This should be installed on your system by default.
 
 **Recommended:**
 
