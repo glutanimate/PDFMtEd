@@ -6,8 +6,6 @@
 
 **PDFMtEd** (**PDF** <b>M</b>e<b>t</b>adata <b>Ed</b>itor) is a set of tools designed to simplify working with PDF metadata on Linux. The utilities hosted in this repository are graphical front-ends to the marvelous [ExifTool](http://www.sno.phy.queensu.ca/~phil/exiftool/) by Phil Harvey.
 
-This repository is a fork of [glutanimate/PDFMtEd](https://github.com/glutanimate/PDFMtEd), ported to Python 3.
-
 ## Table of contents
 
 - [Components](#components)
