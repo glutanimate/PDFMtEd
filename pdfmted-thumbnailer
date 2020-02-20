@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 
 # General purpose GNOME thumbnailer script
 # Written by James Henstridge (http://askubuntu.com/a/201997)
@@ -18,19 +18,19 @@ def make_thumbnail(factory, filename):
     mime_type = info.get_content_type()
 
     if factory.lookup(uri, mtime) is not None:
-        print "FRESH       %s" % uri
+        print("FRESH       %s" % uri)
         return False
 
     if not factory.can_thumbnail(uri, mime_type, mtime):
-        print "UNSUPPORTED %s" % uri
+        print("UNSUPPORTED %s" % uri)
         return False
 
     thumbnail = factory.generate_thumbnail(uri, mime_type)
     if thumbnail is None:
-        print "ERROR       %s" % uri
+        print("ERROR       %s" % uri)
         return False
 
-    print "OK          %s" % uri
+    print("OK          %s" % uri)
     factory.save_thumbnail(thumbnail, uri, mtime)
     return True
 

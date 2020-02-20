@@ -8,32 +8,31 @@
 
 ## Table of contents
 
-<!-- MarkdownTOC -->
-
 - [Components](#components)
-    - [PDFMtEd Editor](#pdfmted-editor)
-    - [PDFMtEd Inspector](#pdfmted-inspector)
-    - [PDFMtEd Thumbnailer](#pdfmted-thumbnailer)
+  * [PDFMtEd Editor](#pdfmted-editor)
+  * [PDFMtEd Inspector](#pdfmted-inspector)
+  * [PDFMtEd Thumbnailer](#pdfmted-thumbnailer)
 - [Installation and dependencies](#installation-and-dependencies)
-    - [Dependencies](#dependencies)
-        - [Overview of all dependencies](#overview-of-all-dependencies)
-        - [Dependency breakdown](#dependency-breakdown)
-    - [Installation](#installation)
-    - [Uninstall PDFMtEd](#uninstall-pdfmted)
+  * [Dependencies](#dependencies)
+    + [Ubuntu 16.04 or lower](#ubuntu-1604-or-lower)
+    + [Most other Linux distribution based on Debian or Ubuntu](#most-other-linux-distribution-based-on-debian-or-ubuntu)
+    + [Fedora and most other Linux distribution based on Fedora](#fedora-and-most-other-linux-distribution-based-on-fedora)
+    + [Arch Linux or Manjaro](#arch-linux-or-manjaro)
+    + [Dependency breakdown](#dependency-breakdown)
+  * [Installation](#installation)
+  * [Uninstall PDFMtEd](#uninstall-pdfmted)
 - [Usage](#usage)
-    - [General usage](#general-usage)
-    - [PDFMtEd Editor](#pdfmted-editor-1)
-        - [User interface](#user-interface)
-        - [Command-line options](#command-line-options)
-    - [PDFMtEd Inspector](#pdfmted-inspector-1)
-    - [PDFMtEd Thumbnailer](#pdfmted-thumbnailer-1)
+  * [General usage](#general-usage)
+  * [PDFMtEd Editor](#pdfmted-editor-1)
+    + [User interface](#user-interface)
+    + [Command-line options](#command-line-options)
+  * [PDFMtEd Inspector](#pdfmted-inspector-1)
+  * [PDFMtEd Thumbnailer](#pdfmted-thumbnailer-1)
 - [Additional information](#additional-information)
-    - [Modified metadata tags](#modified-metadata-tags)
-    - [Purging metadata](#purging-metadata)
+  * [Modified metadata tags](#modified-metadata-tags)
+  * [Purging metadata](#purging-metadata)
 - [Known issues](#known-issues)
 - [License](#license)
-
-<!-- /MarkdownTOC -->
 
 ## Components
 
@@ -82,11 +81,14 @@ PDFMtEd Thumbnailer should be able to generate thumbnails for all file types sup
 
 ## Installation and dependencies
 
-The following instructions are provided for Ubuntu. Package names and repositories might differ on other distributions.
+The following instructions are provided for most Linux distributions.
 
 ### Dependencies
 
-#### Overview of all dependencies
+
+*Optional but recommended*: [sejda-console](https://github.com/torakiki/sejda/releases)
+
+#### Ubuntu 16.04 or lower
 
 Install all dependencies on Ubuntu with the following commands:
 
@@ -94,7 +96,18 @@ Install all dependencies on Ubuntu with the following commands:
     sudo apt-get update
     sudo apt-get install yad libimage-exiftool-perl qpdf
 
-*Optional but recommended*: [sejda-console](https://github.com/torakiki/sejda/releases)
+
+#### Most other Linux distribution based on Debian or Ubuntu
+
+    sudo apt install libimage-exiftool-perl yad qpdf
+
+#### Fedora and most other Linux distribution based on Fedora
+
+    sudo dnf install perl-Image-ExifTool yad qpdf
+
+#### Arch Linux or Manjaro
+
+    sudo pacman -S perl-image-exiftool yad qpdf
 
 #### Dependency breakdown
 
@@ -103,7 +116,7 @@ Install all dependencies on Ubuntu with the following commands:
 - [YAD](http://sourceforge.net/projects/yad-dialog/): graphical front-end for bash scripts, a Zenity fork; provided by Webupd8 PPA
 - [ExifTool](http://www.sno.phy.queensu.ca/~phil/exiftool/): general purpose metadata editing application and library
 - [qpdf](http://qpdf.sourceforge.net/): command-line program that does structural, content-preserving transformations on PDF files; used in this project to restore broken PDF files and purge documents of residual metadata
-- Python 2.7 is required for the thumbnailer and thumbnail preview to work. This should be installed on your system by default.
+- Python 3 is required for the thumbnailer and thumbnail preview to work. This should be installed on your system by default.
 
 **Recommended:**
 
@@ -129,7 +142,7 @@ After the installation PDFMtEd Editor and Inspector should be available as entri
 
 ![file manager context menu with PDFMtEd entries](https://github.com/Glutanimate/PDFMtEd/blob/master/screenshots/pdfmted_usage.png)
 
-If you can't find the entries click on *Other application* (arrow) and navigate to *Show other applications*. You should be able to find the PDFMtEd launchers in the list. Double-click on *PDFMtEd – Inspector* to open the application. This will automatically add a context menu entry. Repeat the procedure for *PDFMtEd – Editor* and you are set.
+If you can't find the entries click on *Other application* (arrow) and navigate to *Show other applications*. You should be able to find the PDFMtEd launchers in the list. Double-click on *PDFMtEd  Inspector* to open the application. This will automatically add a context menu entry. Repeat the procedure for *PDFMtEd  Editor* and you are set.
 
 ### Uninstall PDFMtEd
 
@@ -142,6 +155,7 @@ Follow these steps to uninstall the PDFMted utilities:
 2. Run `uninstall.sh` as root:
 
         sudo ./uninstall.sh
+
 
 ## Usage
 
