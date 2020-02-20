@@ -17,9 +17,9 @@ This repository is a fork of [glutanimate/PDFMtEd](https://github.com/glutanimat
 - [Installation and dependencies](#installation-and-dependencies)
   * [Dependencies](#dependencies)
     + [Ubuntu 16.04 or lower](#ubuntu-1604-or-lower)
-    + [Ubuntu 18.04 or higher, Debian, Linux Mint, Pop!OS, Zorin OS, Elementary OS, and any other Linux distribution based on Debian or Ubuntu](#ubuntu-1804-or-higher--debian--linux-mint--pop-os--zorin-os--elementary-os--and-any-other-linux-distribution-based-on-debian-or-ubuntu)
-    + [Fedora, and most other Linux distribution based on Fedora](#fedora--and-most-other-linux-distribution-based-on-fedora)
-    + [Arch Linux, Manjaro](#arch-linux--manjaro)
+    + [Most other Linux distribution based on Debian or Ubuntu](#most-other-linux-distribution-based-on-debian-or-ubuntu)
+    + [Fedora and most other Linux distribution based on Fedora](#fedora-and-most-other-linux-distribution-based-on-fedora)
+    + [Arch Linux or Manjaro](#arch-linux-or-manjaro)
     + [Dependency breakdown](#dependency-breakdown)
   * [Installation](#installation)
   * [Uninstall PDFMtEd](#uninstall-pdfmted)
@@ -99,15 +99,15 @@ Install all dependencies on Ubuntu with the following commands:
     sudo apt-get install yad libimage-exiftool-perl qpdf
 
 
-#### Ubuntu 18.04 or higher, Debian, Linux Mint, Pop!OS, Zorin OS, Elementary OS, and any other Linux distribution based on Debian or Ubuntu
+#### Most other Linux distribution based on Debian or Ubuntu
 
     sudo apt install libimage-exiftool-perl yad qpdf
 
-#### Fedora, and most other Linux distribution based on Fedora
+#### Fedora and most other Linux distribution based on Fedora
 
     sudo dnf install perl-Image-ExifTool yad qpdf
 
-#### Arch Linux, Manjaro
+#### Arch Linux or Manjaro
 
     sudo pacman -S perl-image-exiftool yad qpdf
 
