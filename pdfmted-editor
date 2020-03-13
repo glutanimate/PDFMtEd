@@ -33,7 +33,7 @@ EXECUTABLE="$(readlink -f "$0")"
 PROGDIR="${EXECUTABLE%/*}"
 THUMBNAILER="$PROGDIR/pdfmted-thumbnailer.py"
 # use RAMdisk instead of /tmp/ to improve performance
-TMPDIR="/run/shm/${0##*/}"
+TMPDIR="$HOME/.cache/PDFMtEd/${0##*/}"
 
 ############### SETTINGS #################
 
