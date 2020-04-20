@@ -33,7 +33,9 @@ EXECUTABLE="$(readlink -f "$0")"
 PROGDIR="${EXECUTABLE%/*}"
 THUMBNAILER="$PROGDIR/pdfmted-thumbnailer.py"
 # use RAMdisk instead of /tmp/ to improve performance
-TMPDIR="/run/shm/${0##*/}"
+TMPDIR="${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/PDFMtEd}" ; [ -z "$TMPDIR" ] && echo '$XDG_RUNTIME_DIR not set, defaulting to cache'
+TMPDIR="${TMPDIR:-$XDG_CACHE_HOME/PDFMtEd}"
+TMPDIR="${TMPDIR:-$HOME/.cache/PDFMtEd}"
 
 ############### SETTINGS #################
 
