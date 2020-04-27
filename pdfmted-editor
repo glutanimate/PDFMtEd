@@ -485,7 +485,7 @@ process_yad_formchoices(){
 
 read_metadata() {
     echo "#Reading embedded metadata..."
-    exiftool -e -S -sep ";" -PDF:Title -PDF:Author -PDF:Subject \
+    exiftool -e -S -PDF:Title -PDF:Author -PDF:Subject \
     -PDF:Keywords -PDF:CreateDate -PDF:ModifyDate \
     "$FILE" > "$PROGPIPE"
 }
