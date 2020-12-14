@@ -2,7 +2,7 @@
 # NAME:         PDFMtEd – Editor
 # VERSION:      0.1
 # AUTHOR:       (c) 2014 Glutanimate
-# DEPENDENCIES: yad exiftool python2.7 (sejda-pdf) (qpdf)
+# DEPENDENCIES: yad exiftool python3 (sejda-pdf) (qpdf)
 #               
 # DESCRIPTION:  View and edit PDF metadata using exiftool.
 #
@@ -123,7 +123,7 @@ check_deps() {
 }
 
 gui_check_deps(){
-    check_deps yad exiftool python2.7
+    check_deps yad exiftool python3
     if [[ -n "$MISSINGDEPS" ]]; then
       gui_show_error "${TEXT_INFO_DEPERR}
       ${MISSINGDEPS}"
@@ -427,7 +427,7 @@ gui_thumbnail_generate() {
 # assign thumbnail
 gui_thumbnail_assign(){
 
-    PREVIEWIMG="$(python2.7 -c "import gio; import sys; \
+    PREVIEWIMG="$(python3 -c "import gio; import sys; \
     print gio.File(sys.argv[1]).query_info('*').get_attribute_byte_string \
     ('''thumbnail::path''')" "$FILE")"
 
