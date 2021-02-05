@@ -10,7 +10,7 @@
 Installer="$(readlink -f "$0")"
 SourcePath="${Installer%/*}"
 
-InstallPath="/usr/local"
+InstallPath="/usr"
 BinPath="$InstallPath/bin"
 LauncherPath="$InstallPath/share/applications"
 IconPath="$InstallPath/share/icons/hicolor/scalable/apps"

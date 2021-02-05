@@ -7,7 +7,7 @@
 
 # Variables
 
-InstallPath="/usr/local"
+InstallPath="/usr"
 BinPath="$InstallPath/bin"
 LauncherPath="$InstallPath/share/applications"
 IconPath="$InstallPath/share/icons/hicolor/scalable/apps"
