@@ -16,7 +16,7 @@ LauncherPath="$InstallPath/share/applications"
 IconPath="$InstallPath/share/icons/hicolor/scalable/apps"
 
 mkdir -p "$BinPath"
-mkdir -p "$LaunchPath"
+mkdir -p "$LauncherPath"
 mkdir -p "$IconPath"
 
 Application="PDFMtEd"
