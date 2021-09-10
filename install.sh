@@ -22,7 +22,7 @@ mkdir -p "$IconPath"
 Application="PDFMtEd"
 InstallationFiles=("desktop/pdfmted-editor.desktop" "desktop/pdfmted-inspector.desktop"\
   "desktop/pdfmted.svg" "pdfmted-editor" "pdfmted-inspector" "pdfmted-thumbnailer")
-Dependencies=(yad exiftool python2.7 qpdf)
+Dependencies=(yad exiftool python3 qpdf)
 
 # Functions
 
