@@ -351,6 +351,7 @@ gui_metadata_entry_multi(){
     --field="Year:":NUM "$YEAR_ORIGINAL[!0..3000[!1]]" \
     --field="Keywords:" "$KEYWORDS_ORIGINAL" \
     --field="Subject:" "$SUBJECT_ORIGINAL" \
+    --field="Publisher:" "$PUBLISHER_ORIGINAL" \
     --field "$TEXT_BTTN_CLRALL!gtk-clear!$TEXT_HOVR_CLRALL":FBTN \
       "@bash -c gui_clear_fields" \
     --field="":LBL "" \
@@ -459,6 +460,7 @@ duplicate_metadata () {
     TITLE_ORIGINAL="$TITLE"
     YEAR_ORIGINAL="$YEAR"
     SUBJECT_ORIGINAL="$SUBJECT"
+    PUBLISHER_ORIGINAL="$PUBLISHER"
     KEYWORDS_ORIGINAL="$KEYWORDS"
 }
 
@@ -470,9 +472,10 @@ process_yad_formchoices(){
     YEAR="$(echo "$NEW_METADATA" | cut -d '|' -f6 | cut -d ',' -f1 | cut -d '.' -f1)"
     KEYWORDS="$(echo "$NEW_METADATA" | cut -d '|' -f7)"
     SUBJECT="$(echo "$NEW_METADATA" | cut -d '|' -f8)"
-    SAVECHOICE="$(echo "$NEW_METADATA" | cut -d '|' -f14)"
-    RENAMECHOICE="$(echo "$NEW_METADATA" | cut -d '|' -f15)"
-    DUPLICATECHOICE="$(echo "$NEW_METADATA" | cut -d '|' -f16)"
+    PUBLISHER="$(echo "$NEW_METADATA" | cut -d '|' -f9)"
+    SAVECHOICE="$(echo "$NEW_METADATA" | cut -d '|' -f15)"
+    RENAMECHOICE="$(echo "$NEW_METADATA" | cut -d '|' -f16)"
+    DUPLICATECHOICE="$(echo "$NEW_METADATA" | cut -d '|' -f17)"
     MODIFYDATE="$(date +"%Y:%m:%d %H:%M:%S")"
     if [[ "$YEAR" = "0" ]]; then
       CREATEDATE=""
@@ -485,7 +488,7 @@ process_yad_formchoices(){
 
 read_metadata() {
     echo "#Reading embedded metadata..."
-    exiftool -e -S -PDF:Title -PDF:Author -PDF:Subject \
+    exiftool -e -S -PDF:Title -PDF:Author -PDF:Subject -PDF:Producer \
     -PDF:Keywords -PDF:CreateDate -PDF:ModifyDate \
     "$FILE" > "$PROGPIPE"
 }
@@ -498,7 +501,8 @@ print_original_metadata() {
     echo "Year:                 $YEAR_ORIGINAL"
     echo "Creation date:        $CREATEDATE_ORIGINAL"
     echo "Modification date:    $MODIFYDATE_ORIGINAL"
-    echo "Subject:              $SUBJECT_ORIGINAL"
+    echo "Subject:              $SUBJECT_ORIGINAL"  
+    echo "Publisher:            $PUBLISHER_ORIGINAL"
     echo "Keywords:             $KEYWORDS_ORIGINAL"
 }
 
@@ -510,6 +514,7 @@ evaluate_original_metadata() {
     YEAR_ORIGINAL="${CREATEDATE_ORIGINAL:0:4}" 
     MODIFYDATE_ORIGINAL="$(echo "$METADATA_PDF" | sed -n 's/ModifyDate: //p')"
     SUBJECT_ORIGINAL="$(echo "$METADATA_PDF" | sed -n 's/Subject: //p')"
+    PUBLISHER_ORIGINAL="$(echo "$METADATA_PDF" | sed -n 's/Producer: //p')"
     KEYWORDS_ORIGINAL="$(echo "$METADATA_PDF" | sed -n 's/Keywords: //p')"
 }
 
@@ -524,9 +529,9 @@ write_metadata(){
     echo "#Writing new metadata"
     exiftool -e -overwrite_original -password "$PASSWORD" -sep ";" \
     -PDF:Title="$TITLE" -PDF:Author="$AUTHOR" \
-    -PDF:Subject="$SUBJECT" -PDF:Keywords="$KEYWORDS" \
+    -PDF:Subject="$SUBJECT" -PDF:Producer="$PUBLISHER" -PDF:Keywords="$KEYWORDS" \
     -PDF:ModifyDate="$MODIFYDATE" -PDF:CreateDate="$CREATEDATE" \
-    -XMP-dc:Subject="$KEYWORDS" -XMP-dc:Description="$SUBJECT" -XMP-dc:Title="$TITLE" \
+    -XMP-dc:Subject="$KEYWORDS" -XMP-dc:Publisher="$PUBLISHER" -XMP-dc:Description="$SUBJECT" -XMP-dc:Title="$TITLE" \
     -XMP-dc:Creator="$AUTHOR" -XMP-dc:Date="$CREATEDATE" \
      "$FILE"
     echo "$?" > "$ERRORPIPE1"
@@ -547,6 +552,7 @@ print_updated_metadata() {
     echo "Creation date:        $CREATEDATE"
     echo "Modificaiton date:    $MODIFYDATE"
     echo "Subject:              $SUBJECT"
+    echo "Publisher:            $PUBLISHER"
     echo "Keywords:             $KEYWORDS"
 }
 

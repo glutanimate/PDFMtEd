@@ -228,6 +228,7 @@ To avert confusion and ensure consistency across different PDF handlers it is im
 | Year       | CreateDate                | Date                                        |
 | Keywords   | Keywords                  | Subject                                     |
 | Subject    | Subject                   | Description                                 |
+| Publisher  | Producer                  | Publisher                                   |
 
 ### Purging metadata
 
