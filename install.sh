@@ -11,9 +11,13 @@ Installer="$(readlink -f "$0")"
 SourcePath="${Installer%/*}"
 
 InstallPath="/usr/local"
+InstallPathAlt="/usr"
 BinPath="$InstallPath/bin"
 LauncherPath="$InstallPath/share/applications"
 IconPath="$InstallPath/share/icons/hicolor/scalable/apps"
+BinPathAlt="$InstallPathAlt/bin"
+LauncherPathAlt="$InstallPathAlt/share/applications"
+IconPathAlt="$InstallPathAlt/share/icons/hicolor/scalable/apps"
 
 Application="PDFMtEd"
 InstallationFiles=("desktop/pdfmted-editor.desktop" "desktop/pdfmted-inspector.desktop"\
@@ -48,14 +52,24 @@ check_sourcefiles(){
   done
 }
 
+# First argument is the installation directory to check
+# Second argument is the alt installation directory
+# Third argument is the name of the installation dir variable
 check_destinations(){
-  for i in "$@"; do
-   if [[ ! -d "$i" ]]; then
-     echo "Error: Installation directory not found ($i)"
-     echo "Aborting installation."
-     exit 1
-   fi
-  done
+  if [[ ! -d "$1" ]]; then
+    echo "Error: Installation directory not found ($1)"
+    echo "Trying alternative Installation directory ($2)"
+    if [[ ! -d "$2" ]]; then
+      echo "Error: Alternative Installation directory not found ($2)"
+      echo "Aborting installation."
+      exit 1
+    else
+      echo "Changing to alternative Installation directory"
+      # using name reference to change the actual variable for 1
+      local -n installpath=$3
+      installpath=$2
+    fi
+  fi
 }
 
 # Main
@@ -80,7 +94,9 @@ echo "Checking installation files for integrity..."
 check_sourcefiles "${InstallationFiles[@]}"
 
 echo "Checking installation directory..."
-check_destinations "$BinPath" "$LauncherPath" "$IconPath"
+check_destinations "$BinPath" "$BinPathAlt" "BinPath"
+check_destinations "$LauncherPath" "$LauncherPathAlt" "LauncherPath"
+check_destinations "$IconPath" "$IconPathAlt" "IconPath"
 
 echo "Checking dependencies..."
 check_deps "${Dependencies[@]}"
