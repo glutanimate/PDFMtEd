@@ -98,7 +98,6 @@ check_destinations "$BinPath" "$BinPathAlt" "BinPath"
 check_destinations "$LauncherPath" "$LauncherPathAlt" "LauncherPath"
 check_destinations "$IconPath" "$IconPathAlt" "IconPath"
 
-exit 0
 echo "Checking dependencies..."
 check_deps "${Dependencies[@]}"
 
